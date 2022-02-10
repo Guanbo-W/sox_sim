@@ -1,12 +1,12 @@
 #!/bin/sh
 #SBATCH --time=02:0:00
-#SBATCH --job-name="new_500_ABAB_K10_steve"
-#SBATCH --account=def-dsteph
+#SBATCH --job-name="500_ABAB"
+#SBATCH --account=...
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=50
 #SBATCH --mem=15G
 
-cd /home/shomoita/guanbo
+cd ...
 
 module --force purge
 module load nixpkgs/16.09  
@@ -21,4 +21,4 @@ module load r/4.1.2
 # If all processes are allocated on the same node, NODESLIST contains : node1 node1 node1 node1
 # Cut the domain name and keep only the node name
 export NODESLIST=$(echo $(srun hostname | cut -f 1 -d '.'))
-Rscript --vanilla new_500_ABAB_K10_steve.R $1 $2
+Rscript --vanilla 500_ABAB.R $1 $2
