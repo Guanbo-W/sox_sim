@@ -1,80 +1,52 @@
-#library(ggplot2)
-#library(directlabels)
+# load libraries
 library(Rcpp)
-#library(parallel)
-#library(foreach)
 library(doParallel)
-#library(mtool)
-#library(glmpath)
 library(doMC)
 library(survival)
-#library(iterators)
 library(glmnet)
-#library(Matrix)
 library(spams)
 library(PermAlgo)
 
 
-source("Functions_new.R")
+source("Functions.R")
 
+# for high performance computing
 args = commandArgs(trailingOnly=TRUE)
 start=as.numeric(args[1])
 end=as.numeric(args[2])
 
-#start_time <- Sys.time()
 SSS=NULL
 for (i in start:end){
   set.seed(i)
   n=500;m=50
   covariates=gen_X_n(m,n)
+  # generate outcomes
   data <- permalgorithm(n, m, covariates, 
                         XmatNames=c("A1","A2","C1","C2","B","A1B","A2B","C1B","C2B"),
-                        #eventRandom = eventRandom, 
-                        #censorRandom=round(runif(n, 1,100),0), 
+                        #change according to scenario 1/2
                         betas=c(rep(log(3),2), rep(0,2), log(4), rep(log(3),2),rep(0,2)),groupByD=FALSE )
   fit.original = coxph(Surv(Start, Stop, Event) ~ . ,data[,-c(1,3)])
-  
-  
-  #start_time <- Sys.time()
-  
+
+  # glmnet
   registerDoMC(cores = 50)
   A=cv.glmnet(as.matrix(data[,-c(1:5)]), Surv(data$Start, data$Stop, data$Event),family = "cox", nfolds = 10, parallel = TRUE)
-  #A=cv.glmnet(as.matrix(data[,-c(1:5)]), Surv(data$Start, data$Stop, data$Event),family = "cox", nfolds = 10)
   B=coef(glmnet(as.matrix(data[,-c(1:5)]), Surv(data$Start, data$Stop, data$Event),family = "cox", lambda = A$lambda.1se))
   B.min=coef(glmnet(as.matrix(data[,-c(1:5)]), Surv(data$Start, data$Stop, data$Event),family = "cox", lambda = A$lambda.min))
   fit.glm.1se=glmnet(as.matrix(data[,-c(1:5)]), Surv(data$Start, data$Stop, data$Event),family = "cox", lambda = A$lambda.1se)
   fit.glm.min=glmnet(as.matrix(data[,-c(1:5)]), Surv(data$Start, data$Stop, data$Event),family = "cox", lambda = A$lambda.min)
-  # end_time <- Sys.time()
-  # end_time - start_time
-  # error=NULL
-  # cv.id = NULL
-  # for (j in 1: K){cv.id[data$Id %in% seq(n/K*(j-1)+1,n/K*j,1)] = j}
-  # for (i in 1:K){
-  #   test.data = data[cv.id == i,]
-  #   train.data = data[cv.id != i,]
-  #   est.train = coef(glmnet(as.matrix(train.data[,-c(1:5)]), Surv(train.data$Start, train.data$Stop, train.data$Event),family = "cox", lambda = A$lambda.1se))
-  #   #error[i] = -2*n*(-l(est.train,data[,-c(1,3)])+l(est.train,train.data[,-c(1,3)]))
-  #   #error[i] = 2*n*(l(est.train,test.data[,-c(1,3)]))
-  #   #error[i] = coxnet.deviance(y=Surv(test.data$Start, test.data$Stop, test.data$Event),
-  #   #                           x=as.matrix(test.data[,-c(1:5)]),beta=est.train)
-  #   error[i] = coxnet.deviance(y=Surv(data$Start, data$Stop, data$Event),
-  #                              x=as.matrix(data[,-c(1:5)]),beta=est.train)-
-  #             coxnet.deviance(y=Surv(train.data$Start, train.data$Stop, train.data$Event),
-  #                     x=as.matrix(train.data[,-c(1:5)]),beta=est.train)
-  #   error[i] = error[i]/length(which(test.data$Event==1))
-  # }
-  # 
-  # A$cvm[A$lambda==A$lambda.1se]
-  # A$cvsd[A$lambda==A$lambda.1se]
   
+  # specify hyper-parameters reqiured for our method
+  # number of covariate
   p=9
+  # initial values
   betas=rep(0,p)
+  # step size; convergence threshold; step shrinking multiplier
   t = 1;epsilon = 10^-5;alpha = 0.8
+  # numnber of groups
   g=5
-  #eta_g = as.vector(c(sqrt(7),sqrt(2+6*sqrt(2)),sqrt(7),sqrt(2+6*sqrt(2)),sqrt(3+6*sqrt(3))),mode='double')
-  #eta_g = as.vector(c(sqrt(4),sqrt(5),sqrt(2),sqrt(4),sqrt(2)),mode='double')
+  # weights of each group
   eta_g = as.vector(rep(1,5),mode='double')
-
+  # grouping structure, see http://thoth.inrialpes.fr/people/mairal/spams/doc-R/html/doc_spams006.html#sec27 
   grp =as(matrix(as.vector(c(0, 0, 0, 0, 0,
                              0, 0, 0, 0, 0,
                              1, 1, 0, 0, 0,
@@ -91,6 +63,7 @@ for (i in start:end){
                               0, 0, 0, 0, 1  #C2B
   ),mode='logical'),ncol = 5,byrow = T),'CsparseMatrix')
   
+  # specify the lambda sequence/range
   lam1.max = 0.5
   lambda.min = 0.0001
   S_max = log(lam1.max)
@@ -98,15 +71,9 @@ for (i in start:end){
   seq_S = seq(S_min, S_max,length.out=50)
   seq_lambda = exp(seq_S)
   length_lambda =length(seq_lambda)
-  print(1+1)
-  # coefs = NULL
-  # errors = NULL
-  # for(lam1 in seq_lambda){
-  #   coef = SurvTDSelect(data, grp, grpV, eta_g, regul, betas, t, alpha, epsilon, lam1)
-  #   coefs = cbind(coefs, coef)
-  # }
+
   
-  #parallel
+  # parallel computing
   # nodeslist = unlist(strsplit(Sys.getenv("NODESLIST"), split=" "))
   # cl = makeCluster(nodeslist, type = "PSOCK") 
   # registerDoParallel(cl)
@@ -119,22 +86,16 @@ for (i in start:end){
   })
   clusterExport(cl, ls())
   
-  # cl = makeForkCluster(8)
-  # registerDoParallel(cl)
-  # start_time <- Sys.time()
-  
   coefs = NULL
   errors = NULL
   coefs=foreach(lam1 = seq_lambda, .combine=cbind) %dopar% {
     SurvTDSelect(data, grp, grpV, eta_g, regul, betas, t, alpha, epsilon, lam1)
   }
-  # end_time <- Sys.time()
-  # end_time - start_time
   
-  devout=paste("/home/shomoita/guanbo/new_500_ABAB_K10_steve/coefs","_",start,"_",end,".csv", sep="")
+  devout=paste(".../coefs","_",start,"_",end,".csv", sep="")
   row.names(coefs)=c("A1","A2","C1","C2","B","A1B","A2B","C1B","C2B")
   write.csv(coefs, devout, row.names = T)
-  print(1+2)
+
   #plot
   # coefs.col = matrix(t(coefs),ncol=1)
   # D1 = data.frame(coefs.col, var=as.character(rep(1:p, each= length_lambda)),lambda=rep(seq_lambda,p))
@@ -143,9 +104,6 @@ for (i in start:end){
   #   geom_dl(aes(label = var), method = list("first.points"), cex = 0.02)
   #dev.off()
   
-  # cl = makeForkCluster(8)
-  # registerDoParallel(cl)
-  # start_time <- Sys.time()
   # CV error plot
   K = 10
   # error_on_each_fold=NULL
@@ -153,17 +111,14 @@ for (i in start:end){
   #   temp=SurvTDSelect_CV(data,grp, grpV, eta_g, regul, betas, t, alpha, epsilon, lam1, K)
   #   error_on_each_fold=cbind(error_on_each_fold,temp)
   # }
-  # parallel computing
-  # start_time <- Sys.time()
-  # 
-  # cl = makeForkCluster(8)
-  # registerDoParallel(cl)
+  
+  # cross-validation
   error_on_each_fold = foreach(lam1 = seq_lambda, .combine=cbind) %dopar% {
     SurvTDSelect_CV(data,grp, grpV, eta_g, regul, betas, t, alpha, epsilon, lam1, K)
   }
   stopCluster(cl)
-  # end_time <- Sys.time()
-  # end_time - start_time
+  
+  # 1se rule
   errors = error_uppers = error_lowers = NULL
   errors = apply(error_on_each_fold, 2, mean)
   error_uppers = errors + apply(error_on_each_fold, 2, function(x) sd(x)/sqrt(K)  )
@@ -308,21 +263,10 @@ for (i in start:end){
   
   SSS=cbind(SSS,results)
   
-  devout=paste("/home/shomoita/guanbo/new_500_ABAB_K10_steve/result","_",start,"_",end,".csv", sep="")
+  devout=paste(".../result","_",start,"_",end,".csv", sep="")
   write.csv(SSS, devout, row.names = T)
   
-
-  
-  # devout=paste("/Users/guanbo/Library/Mobile Documents/com~apple~CloudDocs/Ph.D.Project/P1/SimpleCase/500_A/COEF","_",i,".txt", sep="")
-  # write.table(COEF, devout, row.names = F, sep="\t")
-  #
-  # devout=paste("/Users/guanbo/Library/Mobile Documents/com~apple~CloudDocs/Ph.D.Project/P1/SimpleCase/500_A/results","_",i,".txt", sep="")
-  # write.table(results, devout, row.names = F, sep="\t")
 }
-# end_time <- Sys.time()
-# end_time - start_time
 
-# devout=paste("/home/shomoita/guanbo/500_A/results","_",start,"_",end,".txt", sep="")
-# write.table(SSS, devout, row.names = T, sep="\t")
 
 
