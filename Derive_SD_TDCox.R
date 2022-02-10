@@ -54,7 +54,7 @@ ifthen=function(A,B,V){
 
 
 #################################################
-V=c("A1","A2","A1B","A2B","B","C1","C2","C1B","C2B")
+# V=c("A1","A2","A1B","A2B","B","C1","C2","C1B","C2B")
 V=seq(9)
 start_time <- Sys.time()
 a1=as.list(cat(c(1,2),V))
