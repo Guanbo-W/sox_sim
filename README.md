@@ -1,6 +1,6 @@
 # sox_sim
 
-## Simulation code for "Structural learning in Cox model with time-dependent covariates".
+## Simulation code for "Structured learning in Cox model with time-dependent covariates".
 
 - File "Derive_SD_TDCox.R" is the R code for deriving the selection dictionary in the simulation study (low-dim case).
 
