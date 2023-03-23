@@ -8,7 +8,7 @@ library(spams)
 library(PermAlgo)
 
 
-source("Functions.R")
+source("Low_Dim_Functions.R")
 
 # for high performance computing
 args = commandArgs(trailingOnly=TRUE)
