@@ -10,4 +10,4 @@
 
 - The corresponding .sh file is the files for submitting jobs to high performance computing.
 
-Please see [here](https://cran.r-project.org/web/packages/sox/index.html) for the details aboyt the ```R``` package ```sox```.
+Please see [here](https://cran.r-project.org/web/packages/sox/index.html) for the details about the ```R``` package ```sox```.
